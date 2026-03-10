@@ -1,22 +1,26 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.ilyasbekmuratov.bettercommitsorting</id>
-    <name>better-commit-sorting</name>
-    <vendor>ilyas-bekmuratov</vendor>
+    <name>Better-Changelist</name>
+    <vendor>Ostnev</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.ilyasbekmuratov.bettercommitsorting.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.ilyasbekmuratov.bettercommitsorting.startup.MyProjectActivity" />
+        <projectConfigurable
+                parentId="tools"
+                instance="SorterConfigurable"
+                id="ChangelistConfigurable"
+                displayName="Changelist Sorter"/>
     </extensions>
     <actions>
         <action id="SortUnityChangesAction"
-                class="SortUnityChangesAction"
-                text="Sort Unity Changes"
-                description="Sorts Unity assets into separate changelists">
+                class="SortChangelistAction"
+                text="Sort Changelists"
+                description="Sorts changes into separate changelists">
             <keyboard-shortcut keymap="$default" first-keystroke="alt S"/>
             <add-to-group group-id="VcsGroup" anchor="last"/>
         </action>

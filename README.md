@@ -2,11 +2,23 @@
 
 ![Build](https://github.com/ilyas-bekmuratov/better-commit-sorting/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) 
+
+**Better-Changelist** is a time-saving version control plugin designed to automatically sort your messy Git changes into neatly organized, logical changelists. It is especially powerful for Unity developers who struggle with massive commits containing a mix of code, assets, and meta files.
+
+**Key Features:**
+* **Intelligent Auto-Sorting:** Automatically categorizes your modified files into designated changelists based on file extensions (e.g., Materials, Scripts, Prefabs, Scenes, Assembly).
+* **Smart Meta File Grouping:** Keeps your `.meta` files tethered to their parent assets. If you modify `Player.prefab` and `Player.prefab.meta`, they are grouped together automatically.
+* **ScriptableObject Detection:** Deep-scans `.asset` files to detect if they are ScriptableObjects (by checking for `MonoBehaviour:`) and isolates them into their own changelist for safer reviews.
+* **Fully Customizable:** Don't like the default categories? Use the built-in settings panel to add, remove, or modify sorting rules and extensions to fit your exact workflow.
+* **Catch-All:** Any files that don't match your rules are safely placed in an "Other Changes" changelist, ensuring nothing slips through the cracks.
+
+**How to use:**
+Simply open your Commit tool window and press <kbd>Alt</kbd> + <kbd>S</kbd> (or find "Sort Changelists" in the VCS actions menu) to instantly organize your working tree.
 
 ## Template ToDo list
 - [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
+- [x] Get familiar with the [template documentation][template].
 - [ ] Adjust the [pluginGroup](./gradle.properties) and [pluginName](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml) and [sources package](./src/main/kotlin).
 - [ ] Adjust the plugin description in `README` (see [Tips][docs:plugin-description])
 - [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
