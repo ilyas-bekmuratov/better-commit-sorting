@@ -12,4 +12,13 @@
         <toolWindow factoryClass="com.github.ilyasbekmuratov.bettercommitsorting.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.ilyasbekmuratov.bettercommitsorting.startup.MyProjectActivity" />
     </extensions>
+    <actions>
+        <action id="SortUnityChangesAction"
+                class="SortUnityChangesAction"
+                text="Sort Unity Changes"
+                description="Sorts Unity assets into separate changelists">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt S"/>
+            <add-to-group group-id="VcsGroup" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>

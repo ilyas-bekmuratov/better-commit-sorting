@@ -17,6 +17,7 @@ version = providers.gradleProperty("pluginVersion").get()
 // Set the JVM language level used to build the project.
 kotlin {
     jvmToolchain(21)
+    jvmToolchain(8)
 }
 
 // Configure project's dependencies
@@ -49,6 +50,7 @@ dependencies {
 
         testFramework(TestFrameworkType.Platform)
     }
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html

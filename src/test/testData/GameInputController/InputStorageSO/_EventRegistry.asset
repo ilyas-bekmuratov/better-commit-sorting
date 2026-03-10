@@ -1,0 +1,140 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5fed4287d4832a4ea3ec1f2235f6300, type: 3}
+  m_Name: _EventRegistry
+  m_EditorClassIdentifier: SOAP::EventRegistry
+  inputMapSetEvent: {fileID: 11400000, guid: 2770e0970c74ac344a3aaffe1971e853, type: 2}
+  entryRegions:
+  - description: Basic action events
+    isUsed: 1
+    entries:
+    - ID: openPhone
+      Asset: {fileID: 11400000, guid: a138312b38d55a743921632f9d7ebe27, type: 2}
+    - ID: onMenu
+      Asset: {fileID: 11400000, guid: 5b6053131f556e54c93105c4d6fbd21e, type: 2}
+    - ID: onThrottle
+      Asset: {fileID: 11400000, guid: 9a1c49b775236404dba2cb45363461d6, type: 2}
+    - ID: onStartEngine
+      Asset: {fileID: 11400000, guid: 778ba8a0db5e951408250af23d4a35f6, type: 2}
+    - ID: onLook
+      Asset: {fileID: 11400000, guid: b57b31c331086d4458c9b9424c332aa9, type: 2}
+    - ID: cancel
+      Asset: {fileID: 11400000, guid: 162ff64e7e8c05e4ebdc531a833d265c, type: 2}
+    - ID: changeCamera
+      Asset: {fileID: 11400000, guid: 144cc586b312acb4296a2666f9acdc96, type: 2}
+    - ID: toggleMap
+      Asset: {fileID: 11400000, guid: a909a40bc4f3a40498ab99f374a860d2, type: 2}
+    - ID: circleMenu
+      Asset: {fileID: 11400000, guid: c0c990d35dccf7b4999bcbe986c97058, type: 2}
+    - ID: circleMenuScroll
+      Asset: {fileID: 11400000, guid: 01e479cc17a369d43b7b6b0e91a357fb, type: 2}
+    - ID: closeCircleMenu
+      Asset: {fileID: 11400000, guid: c67ae454b89c0884fad128f424a1cec8, type: 2}
+    - ID: doorStartCancel
+      Asset: {fileID: 11400000, guid: 0338191ce02d5cb46a5dc8a315ac7c65, type: 2}
+    - ID: shifterUpDown
+      Asset: {fileID: 11400000, guid: 9b85b5bdfbb618a41b7f0e7176fa1fb6, type: 2}
+    - ID: shifterMA
+      Asset: {fileID: 11400000, guid: 65b9f9138f06f1845aa6be25be73c920, type: 2}
+    - ID: shifterMoveStarted
+      Asset: {fileID: 11400000, guid: dd1226f2d5eac294dbbfdbd5ad9618a8, type: 2}
+    - ID: shiftToggleMA
+      Asset: {fileID: 11400000, guid: 7c8b95a789118094ca3250dd26fdea52, type: 2}
+    - ID: onHorn
+      Asset: {fileID: 11400000, guid: 4750f9235f945654aba520572ab9e15b, type: 2}
+    - ID: onHeadlights
+      Asset: {fileID: 11400000, guid: 282bae515f2fcc2448b820bd58a23249, type: 2}
+  - description: Variables in FixedUpdate
+    isUsed: 1
+    entries:
+    - ID: throttle
+      Asset: {fileID: 11400000, guid: 6a4da19a5e9ce5e45baacb8db0d11844, type: 2}
+    - ID: brake
+      Asset: {fileID: 11400000, guid: bae37b00b2b08364384f6c24e319d614, type: 2}
+    - ID: clutch
+      Asset: {fileID: 11400000, guid: 4944d86ea908e2c47b15e5370b5707b5, type: 2}
+    - ID: steer
+      Asset: {fileID: 11400000, guid: 5cf7020f1c039b34abdf99db3b66ed67, type: 2}
+    - ID: handbrake
+      Asset: {fileID: 11400000, guid: 31bc63ed75732a94f8e2b3d44eafcc73, type: 2}
+    - ID: zoom
+      Asset: {fileID: 11400000, guid: e2349faf8b313aa4ebe9a5c962a4a45f, type: 2}
+    - ID: look
+      Asset: {fileID: 11400000, guid: 02ec320b8d9203e449f3e65e8859a7c9, type: 2}
+    - ID: movePerson
+      Asset: {fileID: 11400000, guid: 3a282903c791ef84e81ecee6b4c7e666, type: 2}
+    - ID: mapMove
+      Asset: {fileID: 11400000, guid: 6f785f0fe2ad65045a6c257773963347, type: 2}
+    - ID: circleMenuMove
+      Asset: {fileID: 11400000, guid: 3852a3fe75eca45488dec36b24649ed6, type: 2}
+    - ID: shifterMove
+      Asset: {fileID: 11400000, guid: fda6f4a880fd9ed4a9051aa68f5bf568, type: 2}
+  - description: GlobalControl
+    isUsed: 1
+    entries:
+    - ID: setActionsActive
+      Asset: {fileID: 11400000, guid: f6d9e6e3e0144854eae649877f73acc4, type: 2}
+  - description: visual tuning
+    isUsed: 1
+    entries:
+    - ID: onNextPrevious
+      Asset: {fileID: 11400000, guid: aa15a0468468054498c0d20e5d6abc38, type: 2}
+    - ID: onLayerUpDown
+      Asset: {fileID: 11400000, guid: bc42ee70621e7624781f2955d886243a, type: 2}
+    - ID: onNavigateExisting
+      Asset: {fileID: 11400000, guid: f1330fded08234c48a97fb6c0e5c2e6f, type: 2}
+    - ID: onNavigateNew
+      Asset: {fileID: 11400000, guid: ee20ede657d2fa54890089ac2a54f403, type: 2}
+    - ID: toggleToSize
+      Asset: {fileID: 11400000, guid: 645204bac1e7f6e4eb04df4997d7a885, type: 2}
+    - ID: toggleToColor
+      Asset: {fileID: 11400000, guid: 217742476a479074e9883bc54c85f881, type: 2}
+    - ID: addFavorite
+      Asset: {fileID: 11400000, guid: b784b5fc4b854574ca63230326043417, type: 2}
+    - ID: copy
+      Asset: {fileID: 11400000, guid: e3a0da03a8a4e2c4b9c49ca127f9e84f, type: 2}
+    - ID: deleteAll
+      Asset: {fileID: 11400000, guid: 67b5fb8514fd49b49a87782676167170, type: 2}
+    - ID: deleteSelected
+      Asset: {fileID: 11400000, guid: dc44d2ae24bd83f4880843c3338449ff, type: 2}
+    - ID: mirror
+      Asset: {fileID: 11400000, guid: 1b3f5bb5e70f40f4b99493e81425cd4a, type: 2}
+    - ID: setColor
+      Asset: {fileID: 11400000, guid: 015f7082e3fb0aa468d886a17396f2b6, type: 2}
+    - ID: setSize
+      Asset: {fileID: 11400000, guid: 9fbb815d66631554d87e364af050c02b, type: 2}
+    - ID: blockCamera
+      Asset: {fileID: 11400000, guid: cd34a4ccf70904140a6bcfbb9bf30f82, type: 2}
+    - ID: toggleFavorites
+      Asset: {fileID: 11400000, guid: 675ed96e8582899408b3da832588394a, type: 2}
+    - ID: toggleMultiSelect
+      Asset: {fileID: 11400000, guid: 972d3325227b7f345bfb8575cc9b9d74, type: 2}
+    - ID: toggleUi
+      Asset: {fileID: 11400000, guid: 6837b8cc0d2b1254b942dda37820d735, type: 2}
+    - ID: opacityChange
+      Asset: {fileID: 11400000, guid: 49a22f9c333909f4aa6661ebc230a513, type: 2}
+    - ID: turnLeftRight
+      Asset: {fileID: 11400000, guid: 3f68cb4b362233c4e8ed7a232518fc94, type: 2}
+    - ID: colorChange
+      Asset: {fileID: 11400000, guid: c0605d71215e6ec498a816f7fa773357, type: 2}
+    - ID: sizeChange
+      Asset: {fileID: 11400000, guid: b600c3f2c9320004a8720e7efbf72279, type: 2}
+    - ID: positionChange
+      Asset: {fileID: 11400000, guid: ba3aebfd113afef4d8338b46b323db2a, type: 2}
+    - ID: onApplyChanges
+      Asset: {fileID: 11400000, guid: b9f55d8e040c11a4fb7128bfb15ba573, type: 2}
+    - ID: onCancelChanges
+      Asset: {fileID: 11400000, guid: b9f55d8e040c11a4fb7128bfb15ba573, type: 2}
+    - ID: onStartColorMove
+      Asset: {fileID: 11400000, guid: ae2720f6816043d4795d81fbe5c9a20d, type: 2}
+    - ID: onStartTintMove
+      Asset: {fileID: 11400000, guid: 57a2a2e97f98c774a856898b81e261d6, type: 2}
