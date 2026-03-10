@@ -22,49 +22,50 @@ class SortChangelistAction : AnAction("Sort Changes") {
             val filePath = change.afterRevision?.file ?: change.beforeRevision?.file ?: continue
             var ext = filePath.name.substringAfterLast('.', "").lowercase()
             val isDeleted = change.afterRevision == null
-            var matched = false
 
-            // Check against our dynamic settings map
+            if (groupMetaFiles && ext == "meta") {
+                val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
+                val parentExt = parentName.substringAfterLast('.', "").lowercase()
+
+                if (parentExt.isNotEmpty()) {
+                    ext = parentExt
+                }
+            }
+
+            var assignedCategory: String? = null
+
             for ((categoryName, extensionsString) in settings) {
-                // Split the comma-separated string into a list and trim spaces
                 val extensionsList = extensionsString.split(",").map { it.trim().lowercase() }
-                if (!extensionsList.contains(ext)) {
-                    unassignedChanges.add(change)
-                    continue
-                }
 
-                if (groupMetaFiles && ext == "meta") {
-                    // Remove the .meta suffix (e.g. Player.prefab.meta -> Player.prefab)
-                    val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
-                    // Get the parent's extension (e.g. prefab)
-                    val parentExt = parentName.substringAfterLast('.', "").lowercase()
-
-                    // If it successfully found a parent extension (meaning it wasn't just a folder named "folder.meta")
-                    if (parentExt.isNotEmpty()) {
-                        ext = parentExt
-                    }
-                }
-
-                if (ext == "asset" && !isDeleted) {
-                    val virtualFile = filePath.virtualFile
-                    if (virtualFile != null) {
-                        try {
-                            virtualFile.inputStream.bufferedReader().useLines { lines ->
-                                val isScriptableObject = lines.take(20).any { it.contains("MonoBehaviour:") }
-                                if (isScriptableObject) {
-                                    sortedChanges.computeIfAbsent("ScriptableObjects") { mutableListOf() }.add(change)
-                                    matched = true
+                if (extensionsList.contains(ext)) {
+                    if (ext == "asset" && !isDeleted) {
+                        var isScriptableObject = false
+                        val virtualFile = filePath.virtualFile
+                        if (virtualFile != null) {
+                            try {
+                                virtualFile.inputStream.bufferedReader().useLines { lines ->
+                                    isScriptableObject = lines.take(20).any { it.contains("MonoBehaviour:") }
                                 }
+                            } catch (ex: Exception) {
+                                // Safely ignore files that are locked or unreadable
                             }
-                        } catch (ex: Exception) {
-                            // Safely ignore files that are locked or unreadable
+                        }
+
+                        if (isScriptableObject) {
+                            assignedCategory = "ScriptableObjects"
+                            break
                         }
                     }
-                }
 
-                if (!matched) {
-                    sortedChanges.computeIfAbsent(categoryName) { mutableListOf() }.add(change)
+                    assignedCategory = categoryName
+                    break
                 }
+            }
+
+            if (assignedCategory != null) {
+                sortedChanges.computeIfAbsent(assignedCategory) { mutableListOf() }.add(change)
+            } else {
+                unassignedChanges.add(change)
             }
         }
 
