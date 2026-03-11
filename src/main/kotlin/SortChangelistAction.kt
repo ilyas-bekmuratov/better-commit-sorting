@@ -24,6 +24,10 @@ class SortChangelistAction : AnAction("Sort Changes") {
         }
 
         moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
+
+        if (state.removeUnusedChangelists) {
+            removeEmptyChangelists(changeListManager)
+        }
     }
 
     private fun resolveExtension(filePath: com.intellij.openapi.vcs.FilePath, groupMetaFiles: Boolean): String {
@@ -84,6 +88,15 @@ class SortChangelistAction : AnAction("Sort Changes") {
             }
         } catch (ex: Exception) {
             null
+        }
+    }
+
+    private fun removeEmptyChangelists(changeListManager: ChangeListManager) {
+        val toRemove = changeListManager.changeLists.filter {
+            !it.isDefault && it.changes.isEmpty()
+        }
+        for (changelist in toRemove) {
+            changeListManager.removeChangeList(changelist)
         }
     }
 

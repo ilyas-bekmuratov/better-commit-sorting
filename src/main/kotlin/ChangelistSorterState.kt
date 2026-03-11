@@ -14,6 +14,7 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
 
     var groupMetaFiles: Boolean = true
     var sortScriptableObjectsByClass: Boolean = false
+    var removeUnusedChangelists: Boolean = false
 
     // These are your default groups
     var sortingRules: MutableMap<String, String> = mutableMapOf(

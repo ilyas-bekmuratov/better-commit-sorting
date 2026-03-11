@@ -16,6 +16,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
     private lateinit var rulesTable: JBTable
     private lateinit var groupMetaFilesCheckBox: JCheckBox
     private lateinit var sortSOByClassCheckBox: JCheckBox
+    private lateinit var removeUnusedChangelistsCheckBox: JCheckBox
 
     override fun getDisplayName(): String = "Changelist Sorter"
 
@@ -46,6 +47,8 @@ class SorterConfigurable(private val project: Project) : Configurable {
         checkboxPanel.layout = javax.swing.BoxLayout(checkboxPanel, javax.swing.BoxLayout.Y_AXIS)
         checkboxPanel.add(groupMetaFilesCheckBox)
         checkboxPanel.add(sortSOByClassCheckBox)
+        removeUnusedChangelistsCheckBox = JCheckBox("Remove empty changelists after sorting")
+        checkboxPanel.add(removeUnusedChangelistsCheckBox)
 
         val wrapperPanel = JPanel(BorderLayout())
         wrapperPanel.add(checkboxPanel, BorderLayout.NORTH)
@@ -71,6 +74,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         val state = ChangelistSorterState.getInstance(project)
         if (state.groupMetaFiles != groupMetaFilesCheckBox.isSelected) return true
         if (state.sortScriptableObjectsByClass != sortSOByClassCheckBox.isSelected) return true
+        if (state.removeUnusedChangelists != removeUnusedChangelistsCheckBox.isSelected) return true
         if (state.sortingRules.size != tableModel.rowCount) return true
         return true
     }
@@ -79,6 +83,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         val state = ChangelistSorterState.getInstance(project)
         state.groupMetaFiles = groupMetaFilesCheckBox.isSelected
         state.sortScriptableObjectsByClass = sortSOByClassCheckBox.isSelected
+        state.removeUnusedChangelists = removeUnusedChangelistsCheckBox.isSelected
         state.sortingRules.clear()
         for (i in 0 until tableModel.rowCount) {
             val name = tableModel.getValueAt(i, 0) as String
@@ -92,6 +97,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         val state = ChangelistSorterState.getInstance(project)
         groupMetaFilesCheckBox.isSelected = state.groupMetaFiles
         sortSOByClassCheckBox.isSelected = state.sortScriptableObjectsByClass
+        removeUnusedChangelistsCheckBox.isSelected = state.removeUnusedChangelists
         tableModel.rowCount = 0
         for ((name, extensions) in state.sortingRules) {
             tableModel.addRow(arrayOf(name, extensions))
