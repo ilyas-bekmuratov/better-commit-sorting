@@ -1,5 +1,6 @@
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
 
@@ -8,82 +9,100 @@ class SortChangelistAction : AnAction("Sort Changes") {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val changeListManager = ChangeListManager.getInstance(project)
-        val allChanges = changeListManager.allChanges
-
-        // FETCH THE SAVED SETTINGS HERE
         val state = ChangelistSorterState.getInstance(project)
-        val settings = state.sortingRules
-        val groupMetaFiles = state.groupMetaFiles
 
         val sortedChanges = mutableMapOf<String, MutableList<Change>>()
         val unassignedChanges = mutableListOf<Change>()
 
-        for (change in allChanges) {
-            val filePath = change.afterRevision?.file ?: change.beforeRevision?.file ?: continue
-            var ext = filePath.name.substringAfterLast('.', "").lowercase()
-            val isDeleted = change.afterRevision == null
-
-            if (groupMetaFiles && ext == "meta") {
-                val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
-                val parentExt = parentName.substringAfterLast('.', "").lowercase()
-
-                if (parentExt.isNotEmpty()) {
-                    ext = parentExt
-                }
-            }
-
-            var assignedCategory: String? = null
-
-            for ((categoryName, extensionsString) in settings) {
-                val extensionsList = extensionsString.split(",").map { it.trim().lowercase() }
-
-                if (extensionsList.contains(ext)) {
-                    if (ext == "asset" && !isDeleted) {
-                        var isScriptableObject = false
-                        val virtualFile = filePath.virtualFile
-                        if (virtualFile != null) {
-                            try {
-                                virtualFile.inputStream.bufferedReader().useLines { lines ->
-                                    isScriptableObject = lines.take(20).any { it.contains("MonoBehaviour:") }
-                                }
-                            } catch (ex: Exception) {
-                                // Safely ignore files that are locked or unreadable
-                            }
-                        }
-
-                        if (isScriptableObject) {
-                            assignedCategory = "ScriptableObjects"
-                            break
-                        }
-                    }
-
-                    assignedCategory = categoryName
-                    break
-                }
-            }
-
-            if (assignedCategory != null) {
-                sortedChanges.computeIfAbsent(assignedCategory) { mutableListOf() }.add(change)
+        for (change in changeListManager.allChanges) {
+            val (category, ch) = classifyChange(change, state)
+            if (category != null) {
+                sortedChanges.computeIfAbsent(category) { mutableListOf() }.add(ch)
             } else {
-                unassignedChanges.add(change)
+                unassignedChanges.add(ch)
             }
         }
 
-        for ((categoryName, changes) in sortedChanges) {
-            var targetList = changeListManager.findChangeList(categoryName)
-            if (targetList == null) {
-                targetList = changeListManager.addChangeList(categoryName, "Auto-sorted")
+        moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
+    }
+
+    private fun resolveExtension(filePath: com.intellij.openapi.vcs.FilePath, groupMetaFiles: Boolean): String {
+        val ext = filePath.name.substringAfterLast('.', "").lowercase()
+        if (groupMetaFiles && ext == "meta") {
+            val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
+            val parentExt = parentName.substringAfterLast('.', "").lowercase()
+            if (parentExt.isNotEmpty()) return parentExt
+        }
+        return ext
+    }
+
+    private fun classifyChange(change: Change, state: ChangelistSorterState): Pair<String?, Change> {
+        val filePath = change.afterRevision?.file ?: change.beforeRevision?.file
+            ?: return Pair(null, change)
+        val isDeleted = change.afterRevision == null
+        val ext = resolveExtension(filePath, state.groupMetaFiles)
+
+        for ((categoryName, extensionsString) in state.sortingRules) {
+            val extensionsList = extensionsString.split(",").map { it.trim().lowercase() }
+            if (!extensionsList.contains(ext)) continue
+
+            if (ext == "asset" && !isDeleted) {
+                val soClass = detectScriptableObjectClass(filePath.virtualFile)
+                if (soClass != null) {
+                    val category = if (state.sortScriptableObjectsByClass) "SO: $soClass" else "ScriptableObjects"
+                    return Pair(category, change)
+                }
             }
+
+            return Pair(categoryName, change)
+        }
+
+        return Pair(null, change)
+    }
+
+    private fun detectScriptableObjectClass(virtualFile: VirtualFile?): String? {
+        if (virtualFile == null) return null
+        return try {
+            virtualFile.inputStream.bufferedReader().useLines { lines ->
+                lines.take(20)
+                    .map { it.trim() }
+                    .firstOrNull { it.startsWith("m_EditorClassIdentifier:") }
+                    ?.substringAfter("m_EditorClassIdentifier:")
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { identifier ->
+                        // "SOAP::_Car_Parking.Scripts.SOAP.BoolEvent" → "SOAP::BoolEvent"
+                        val parts = identifier.split("::")
+                        if (parts.size == 2) {
+                            val assembly = parts[0]
+                            val className = parts[1].substringAfterLast('.')
+                            "$assembly::$className"
+                        } else {
+                            identifier.substringAfterLast('.')
+                        }
+                    }
+            }
+        } catch (ex: Exception) {
+            null
+        }
+    }
+
+    private fun moveChangesToChangelists(
+        sortedChanges: Map<String, List<Change>>,
+        unassigned: List<Change>,
+        changeListManager: ChangeListManager
+    ) {
+        for ((categoryName, changes) in sortedChanges) {
+            val targetList = changeListManager.findChangeList(categoryName)
+                ?: changeListManager.addChangeList(categoryName, "Auto-sorted")
             changeListManager.moveChangesTo(targetList, *changes.toTypedArray())
         }
 
-        if (unassignedChanges.isNotEmpty()) {
+        if (unassigned.isNotEmpty()) {
             val otherListName = "Other Changes"
-            var otherList = changeListManager.findChangeList(otherListName)
-            if (otherList == null) {
-                otherList = changeListManager.addChangeList(otherListName, "Uncategorized files")
-            }
-            changeListManager.moveChangesTo(otherList, *unassignedChanges.toTypedArray())
+            val otherList = changeListManager.findChangeList(otherListName)
+                ?: changeListManager.addChangeList(otherListName, "Uncategorized files")
+            changeListManager.moveChangesTo(otherList, *unassigned.toTypedArray())
         }
     }
 }

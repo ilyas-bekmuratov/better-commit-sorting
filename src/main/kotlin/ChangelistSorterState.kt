@@ -13,6 +13,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
 
     var groupMetaFiles: Boolean = true
+    var sortScriptableObjectsByClass: Boolean = false
 
     // These are your default groups
     var sortingRules: MutableMap<String, String> = mutableMapOf(
@@ -22,7 +23,8 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
         "Meta Files" to "meta",
         "Prefabs" to "prefab",
         "Scenes" to "unity",
-        "Assembly" to "asmdef"
+        "Assembly" to "asmdef",
+        "InputActions" to "inputactions",
     )
 
     override fun getState(): ChangelistSorterState = this

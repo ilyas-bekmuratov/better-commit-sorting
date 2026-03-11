@@ -4,7 +4,9 @@
       "WebSearch",
       "WebFetch(domain:platform.jetbrains.com)",
       "WebFetch(domain:plugins.jetbrains.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(xargs:*)",
+      "Bash(./gradlew build:*)"
     ]
   }
 }
