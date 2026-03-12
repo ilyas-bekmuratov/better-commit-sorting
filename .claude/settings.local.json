@@ -6,7 +6,18 @@
       "WebFetch(domain:plugins.jetbrains.com)",
       "WebFetch(domain:github.com)",
       "Bash(xargs:*)",
-      "Bash(./gradlew build:*)"
+      "Bash(./gradlew build:*)",
+      "Read(//c/Program Files/**)",
+      "Bash(where java)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.gradle/jdks/temurin-8-amd64-windows.2\" PATH=\"$JAVA_HOME/bin:$PATH\" ./gradlew build:*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" PATH=\"$JAVA_HOME/bin:$PATH\" ./gradlew build:*)",
+      "Bash(JAVA_HOME=\"$HOME/.gradle/jdks/temurin-8-amd64-windows.2\" ./gradlew build:*)",
+      "Bash(echo:*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.gradle/jdks/temurin-8-amd64-windows.2\" ./gradlew build:*)",
+      "Bash(ls:*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.gradle/caches/9.3.1/transforms/79662db045f3f2e73f325928d86ee7e7/workspace/transformed/ideaIU-2025.2.5-win/jbr\" ./gradlew build:*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.gradle/caches/9.3.1/transforms/79662db045f3f2e73f325928d86ee7e7/workspace/transformed/ideaIU-2025.2.5-win/jbr\" ./gradlew compileKotlin:*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.gradle/caches/9.3.1/transforms/79662db045f3f2e73f325928d86ee7e7/workspace/transformed/ideaIU-2025.2.5-win/jbr\" ./gradlew compileTestKotlin:*)"
     ]
   }
 }

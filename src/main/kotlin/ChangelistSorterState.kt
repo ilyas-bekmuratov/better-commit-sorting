@@ -4,6 +4,15 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.project.Project
 import com.intellij.util.xmlb.XmlSerializerUtil
+import com.intellij.util.xmlb.annotations.Tag
+import com.intellij.util.xmlb.annotations.XCollection
+
+@Tag("filenameRule")
+class FilenamePatternRule {
+    var changelistName: String = ""
+    var pattern: String = ""
+    var matchMode: String = "REGEX"  // "EXTENSION", "EXACT", "REGEX"
+}
 
 @Service(Service.Level.PROJECT)
 @State(
@@ -16,7 +25,6 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
     var sortScriptableObjectsByClass: Boolean = false
     var removeUnusedChangelists: Boolean = false
 
-    // These are your default groups
     var sortingRules: MutableMap<String, String> = mutableMapOf(
         "Assets" to "asset",
         "Materials" to "mat",
@@ -26,6 +34,18 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
         "Scenes" to "unity",
         "Assembly" to "asmdef",
         "InputActions" to "inputactions",
+    )
+
+    @XCollection(style = XCollection.Style.v2)
+    var filenamePatternRules: MutableList<FilenamePatternRule> = mutableListOf()
+
+    var assetClassRules: MutableMap<String, String> = mutableMapOf(
+        "Material" to "Materials",
+        "AnimationClip" to "Animations",
+        "AudioClip" to "Audio",
+        "Texture2D" to "Textures",
+        "PhysicMaterial" to "Physics",
+        "LightingDataAsset" to "Lighting"
     )
 
     override fun getState(): ChangelistSorterState = this

@@ -1,8 +1,10 @@
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vcs.FilePath
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 
 class SortChangelistAction : AnAction("Sort Changes") {
 
@@ -14,8 +16,9 @@ class SortChangelistAction : AnAction("Sort Changes") {
         val sortedChanges = mutableMapOf<String, MutableList<Change>>()
         val unassignedChanges = mutableListOf<Change>()
 
-        for (change in changeListManager.allChanges) {
-            val (category, ch) = classifyChange(change, state)
+        val allChanges = changeListManager.allChanges
+        for (change in allChanges) {
+            val (category, ch) = classifyChange(change, state, allChanges)
             if (category != null) {
                 sortedChanges.computeIfAbsent(category) { mutableListOf() }.add(ch)
             } else {
@@ -30,7 +33,7 @@ class SortChangelistAction : AnAction("Sort Changes") {
         }
     }
 
-    private fun resolveExtension(filePath: com.intellij.openapi.vcs.FilePath, groupMetaFiles: Boolean): String {
+    private fun resolveExtension(filePath: FilePath, groupMetaFiles: Boolean): String {
         val ext = filePath.name.substringAfterLast('.', "").lowercase()
         if (groupMetaFiles && ext == "meta") {
             val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
@@ -40,55 +43,125 @@ class SortChangelistAction : AnAction("Sort Changes") {
         return ext
     }
 
-    private fun classifyChange(change: Change, state: ChangelistSorterState): Pair<String?, Change> {
+    private fun classifyChange(change: Change, state: ChangelistSorterState, allChanges: Collection<Change>): Pair<String?, Change> {
         val filePath = change.afterRevision?.file ?: change.beforeRevision?.file
             ?: return Pair(null, change)
         val isDeleted = change.afterRevision == null
+        val rawExt = filePath.name.substringAfterLast('.', "").lowercase()
+        val isMeta = state.groupMetaFiles && rawExt == "meta"
         val ext = resolveExtension(filePath, state.groupMetaFiles)
 
         for ((categoryName, extensionsString) in state.sortingRules) {
             val extensionsList = extensionsString.split(",").map { it.trim().lowercase() }
             if (!extensionsList.contains(ext)) continue
 
-            if (ext == "asset" && !isDeleted) {
-                val soClass = detectScriptableObjectClass(filePath.virtualFile)
-                if (soClass != null) {
-                    val category = if (state.sortScriptableObjectsByClass) "SO: $soClass" else "ScriptableObjects"
-                    return Pair(category, change)
-                }
+            if (ext == "asset") {
+                val assetCategory = resolveAssetCategory(change, filePath, isMeta, isDeleted, state, allChanges)
+                if (assetCategory != null) return Pair(assetCategory, change)
             }
 
             return Pair(categoryName, change)
         }
 
+        // Filename pattern rules (checked after extension rules fail)
+        val filename = filePath.name
+        for (rule in state.filenamePatternRules) {
+            val matched = when (rule.matchMode) {
+                "EXTENSION" -> ext == rule.pattern.lowercase()
+                "EXACT" -> filename == rule.pattern
+                "REGEX" -> try { Regex(rule.pattern).containsMatchIn(filename) } catch (e: Exception) { false }
+                else -> false
+            }
+            if (matched) return Pair(rule.changelistName, change)
+        }
+
         return Pair(null, change)
     }
 
-    private fun detectScriptableObjectClass(virtualFile: VirtualFile?): String? {
-        if (virtualFile == null) return null
-        return try {
-            virtualFile.inputStream.bufferedReader().useLines { lines ->
-                lines.take(20)
-                    .map { it.trim() }
-                    .firstOrNull { it.startsWith("m_EditorClassIdentifier:") }
-                    ?.substringAfter("m_EditorClassIdentifier:")
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let { identifier ->
-                        // "SOAP::_Car_Parking.Scripts.SOAP.BoolEvent" → "SOAP::BoolEvent"
-                        val parts = identifier.split("::")
-                        if (parts.size == 2) {
-                            val assembly = parts[0]
-                            val className = parts[1].substringAfterLast('.')
-                            "$assembly::$className"
-                        } else {
-                            identifier.substringAfterLast('.')
-                        }
+    /**
+     * Determines the category for an `.asset` file (or its `.meta` proxy) by inspecting content.
+     * Returns null if the file should fall through to the default extension-based category.
+     */
+    private fun resolveAssetCategory(
+        change: Change,
+        filePath: FilePath,
+        isMeta: Boolean,
+        isDeleted: Boolean,
+        state: ChangelistSorterState,
+        allChanges: Collection<Change>
+    ): String? {
+        val content: String? = when {
+            isMeta -> {
+                // Read the parent .asset file instead of the .meta file itself
+                val parentPath = filePath.path.removeSuffix(".meta")
+                val parentVFile = LocalFileSystem.getInstance().findFileByPath(parentPath)
+                if (parentVFile != null) {
+                    try { parentVFile.inputStream.bufferedReader().readText() } catch (e: Exception) { null }
+                } else {
+                    // Parent also deleted — look it up in allChanges by path
+                    val parentChange = allChanges.firstOrNull { c ->
+                        (c.afterRevision?.file?.path ?: c.beforeRevision?.file?.path) == parentPath
                     }
+                    try { parentChange?.beforeRevision?.content } catch (e: Exception) { null }
+                }
             }
-        } catch (ex: Exception) {
-            null
+            isDeleted -> {
+                // Read content from before revision for deleted files
+                try { change.beforeRevision?.content } catch (e: Exception) { null }
+            }
+            else -> {
+                try { filePath.virtualFile?.inputStream?.bufferedReader()?.readText() } catch (e: Exception) { null }
+            }
         }
+        if (content == null) return null
+
+        val (unityClass, soClass) = detectAssetClass(content) ?: return null
+
+        if (unityClass != "MonoBehaviour") {
+            return state.assetClassRules[unityClass]
+        }
+
+        // MonoBehaviour = ScriptableObject
+        if (soClass != null) {
+            return if (state.sortScriptableObjectsByClass) "SO: $soClass" else "ScriptableObjects"
+        }
+        return null
+    }
+
+    /**
+     * Parses the Unity YAML class identifier from asset content.
+     * Returns (unityClass, soClass) where soClass is non-null only for MonoBehaviour assets
+     * that have a valid m_EditorClassIdentifier.
+     */
+    private fun detectAssetClass(content: String): Pair<String, String?>? {
+        val lines = content.lines().take(30).map { it.trim() }
+        val classLineRegex = Regex("^([A-Za-z][A-Za-z0-9_]+):\\s*$")
+
+        val unityClass = lines
+            .firstOrNull { classLineRegex.matches(it) }
+            ?.let { classLineRegex.find(it)?.groupValues?.get(1) }
+            ?: return null
+
+        if (unityClass == "MonoBehaviour") {
+            val soClass = lines
+                .firstOrNull { it.startsWith("m_EditorClassIdentifier:") }
+                ?.substringAfter("m_EditorClassIdentifier:")
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { identifier ->
+                    val parts = identifier.split("::")
+                    if (parts.size == 2) {
+                        val assembly = parts[0]
+                        val className = parts[1].substringAfterLast('.')
+                        "$assembly::$className"
+                    } else {
+                        identifier.substringAfterLast('.')
+                    }
+                }
+            return Pair(unityClass, soClass)
+        }
+
+        return Pair(unityClass, null)
     }
 
     private fun removeEmptyChangelists(changeListManager: ChangeListManager) {
