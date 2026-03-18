@@ -1,3 +1,5 @@
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -8,10 +10,12 @@ import java.awt.Dimension
 import javax.swing.BorderFactory
 import javax.swing.BoxLayout
 import javax.swing.JCheckBox
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
+import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.DefaultTableModel
 
 class SorterConfigurable(private val project: Project) : Configurable {
@@ -23,6 +27,8 @@ class SorterConfigurable(private val project: Project) : Configurable {
     private lateinit var patternTable: JBTable
     private lateinit var assetClassTableModel: DefaultTableModel
     private lateinit var assetClassTable: JBTable
+    private lateinit var directoryTableModel: DefaultTableModel
+    private lateinit var directoryTable: JBTable
     private lateinit var groupMetaFilesCheckBox: JCheckBox
     private lateinit var sortSOByClassCheckBox: JCheckBox
     private lateinit var removeUnusedChangelistsCheckBox: JCheckBox
@@ -45,10 +51,17 @@ class SorterConfigurable(private val project: Project) : Configurable {
                     extensionTableModel.addRow(arrayOf(name, ext))
                 }
             }
+            .setRemoveAction {
+                val selected = extensionTable.selectedRow
+                if (selected >= 0) extensionTableModel.removeRow(selected)
+            }
 
         // Filename pattern rules table
         patternTableModel = DefaultTableModel(arrayOf("Changelist Name", "Pattern", "Type"), 0)
         patternTable = JBTable(patternTableModel)
+        val matchModeCombo = JComboBox(arrayOf("REGEX", "EXACT", "EXTENSION"))
+        patternTable.columnModel.getColumn(2).cellEditor = javax.swing.DefaultCellEditor(matchModeCombo)
+        patternTable.columnModel.getColumn(2).cellRenderer = DefaultTableCellRenderer()
         val patternDecorator = ToolbarDecorator.createDecorator(patternTable)
             .setAddAction {
                 val name = Messages.showInputDialog("Enter changelist name:", "Add Pattern Rule", null)
@@ -60,6 +73,10 @@ class SorterConfigurable(private val project: Project) : Configurable {
                 if (typeIndex >= 0) {
                     patternTableModel.addRow(arrayOf(name, pattern, types[typeIndex]))
                 }
+            }
+            .setRemoveAction {
+                val selected = patternTable.selectedRow
+                if (selected >= 0) patternTableModel.removeRow(selected)
             }
 
         // Asset class rules table
@@ -73,6 +90,26 @@ class SorterConfigurable(private val project: Project) : Configurable {
                 val name = Messages.showInputDialog("Enter changelist name:", "Add Asset Class Rule", null)
                     ?: return@setAddAction
                 assetClassTableModel.addRow(arrayOf(unityClass, name))
+            }
+            .setRemoveAction {
+                val selected = assetClassTable.selectedRow
+                if (selected >= 0) assetClassTableModel.removeRow(selected)
+            }
+
+        // Directory rules table
+        directoryTableModel = DefaultTableModel(arrayOf("Changelist Name", "Directory Path"), 0)
+        directoryTable = JBTable(directoryTableModel)
+        val directoryDecorator = ToolbarDecorator.createDecorator(directoryTable)
+            .setAddAction {
+                val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
+                val chosen = FileChooser.chooseFile(descriptor, project, null) ?: return@setAddAction
+                val name = Messages.showInputDialog("Enter changelist name:", "Add Directory Rule", null)
+                    ?: return@setAddAction
+                directoryTableModel.addRow(arrayOf(name, chosen.path))
+            }
+            .setRemoveAction {
+                val selected = directoryTable.selectedRow
+                if (selected >= 0) directoryTableModel.removeRow(selected)
             }
 
         // Checkboxes
@@ -104,6 +141,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         addSection("Extension Rules:", extensionDecorator.createPanel())
         addSection("Filename Pattern Rules:", patternDecorator.createPanel())
         addSection("Asset Class Rules:", assetClassDecorator.createPanel())
+        addSection("Directory Rules (sort by folder):", directoryDecorator.createPanel())
 
         val scrollPane = JScrollPane(tablesPanel)
         scrollPane.border = null
@@ -159,6 +197,15 @@ class SorterConfigurable(private val project: Project) : Configurable {
             if (state.assetClassRules[unityClass] != name) return true
         }
 
+        // Directory rules
+        if (state.directoryRules.size != directoryTableModel.rowCount) return true
+        for (i in 0 until directoryTableModel.rowCount) {
+            val name = directoryTableModel.getValueAt(i, 0) as String
+            val path = directoryTableModel.getValueAt(i, 1) as String
+            val rule = state.directoryRules.getOrNull(i) ?: return true
+            if (rule.changelistName != name || rule.path != path) return true
+        }
+
         return false
     }
 
@@ -191,6 +238,15 @@ class SorterConfigurable(private val project: Project) : Configurable {
             val name = assetClassTableModel.getValueAt(i, 1) as String
             state.assetClassRules[unityClass] = name
         }
+
+        state.directoryRules.clear()
+        for (i in 0 until directoryTableModel.rowCount) {
+            val rule = DirectoryRule().apply {
+                changelistName = directoryTableModel.getValueAt(i, 0) as String
+                path = directoryTableModel.getValueAt(i, 1) as String
+            }
+            state.directoryRules.add(rule)
+        }
     }
 
     override fun reset() {
@@ -212,6 +268,11 @@ class SorterConfigurable(private val project: Project) : Configurable {
         assetClassTableModel.rowCount = 0
         for ((unityClass, name) in state.assetClassRules) {
             assetClassTableModel.addRow(arrayOf(unityClass, name))
+        }
+
+        directoryTableModel.rowCount = 0
+        for (rule in state.directoryRules) {
+            directoryTableModel.addRow(arrayOf(rule.changelistName, rule.path))
         }
     }
 }

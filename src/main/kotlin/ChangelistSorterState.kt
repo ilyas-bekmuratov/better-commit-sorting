@@ -14,6 +14,12 @@ class FilenamePatternRule {
     var matchMode: String = "REGEX"  // "EXTENSION", "EXACT", "REGEX"
 }
 
+@Tag("directoryRule")
+class DirectoryRule {
+    var changelistName: String = ""
+    var path: String = ""
+}
+
 @Service(Service.Level.PROJECT)
 @State(
     name = "ChangelistSorterSettings",
@@ -38,6 +44,9 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
 
     @XCollection(style = XCollection.Style.v2)
     var filenamePatternRules: MutableList<FilenamePatternRule> = mutableListOf()
+
+    @XCollection(style = XCollection.Style.v2)
+    var directoryRules: MutableList<DirectoryRule> = mutableListOf()
 
     var assetClassRules: MutableMap<String, String> = mutableMapOf(
         "Material" to "Materials",

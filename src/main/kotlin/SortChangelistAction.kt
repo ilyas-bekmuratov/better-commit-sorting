@@ -75,6 +75,14 @@ class SortChangelistAction : AnAction("Sort Changes") {
             if (matched) return Pair(rule.changelistName, change)
         }
 
+        // Directory rules (checked after pattern rules, before fallback)
+        val filePathStr = filePath.path
+        for (rule in state.directoryRules) {
+            if (filePathStr.startsWith(rule.path + "/") || filePathStr.startsWith(rule.path + "\\")) {
+                return Pair(rule.changelistName, change)
+            }
+        }
+
         return Pair(null, change)
     }
 
