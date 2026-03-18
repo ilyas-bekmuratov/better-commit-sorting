@@ -4,7 +4,6 @@ import com.intellij.openapi.vcs.FilePath
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.VirtualFile
 
 class SortChangelistAction : AnAction("Sort Changes") {
 
@@ -50,37 +49,28 @@ class SortChangelistAction : AnAction("Sort Changes") {
         val rawExt = filePath.name.substringAfterLast('.', "").lowercase()
         val isMeta = state.groupMetaFiles && rawExt == "meta"
         val ext = resolveExtension(filePath, state.groupMetaFiles)
-
-        for ((categoryName, extensionsString) in state.sortingRules) {
-            val extensionsList = extensionsString.split(",").map { it.trim().lowercase() }
-            if (!extensionsList.contains(ext)) continue
-
-            if (ext == "asset") {
-                val assetCategory = resolveAssetCategory(change, filePath, isMeta, isDeleted, state, allChanges)
-                if (assetCategory != null) return Pair(assetCategory, change)
-            }
-
-            return Pair(categoryName, change)
-        }
-
-        // Filename pattern rules (checked after extension rules fail)
         val filename = filePath.name
-        for (rule in state.filenamePatternRules) {
-            val matched = when (rule.matchMode) {
-                "EXTENSION" -> ext == rule.pattern.lowercase()
-                "EXACT" -> filename == rule.pattern
-                "REGEX" -> try { Regex(rule.pattern).containsMatchIn(filename) } catch (e: Exception) { false }
-                else -> false
+        val filePathStr = filePath.path
+
+        for (rule in state.sortingRules) {
+            if (!rule.enabled) continue
+            val matched = when (rule.matchType) {
+                "EXTENSION" -> {
+                    val exts = rule.pattern.split(",").map { it.trim().lowercase() }
+                    if (exts.contains(ext)) {
+                        if (ext == "asset" && state.sortUnityAssets) {
+                            val assetCategory = resolveAssetCategory(change, filePath, isMeta, isDeleted, state, allChanges)
+                            if (assetCategory != null) return Pair(assetCategory, change)
+                        }
+                        true
+                    } else false
+                }
+                "EXACT"     -> filename == rule.pattern
+                "REGEX"     -> try { Regex(rule.pattern).containsMatchIn(filename) } catch (e: Exception) { false }
+                "DIRECTORY" -> filePathStr.startsWith(rule.pattern + "/") || filePathStr.startsWith(rule.pattern + "\\")
+                else        -> false
             }
             if (matched) return Pair(rule.changelistName, change)
-        }
-
-        // Directory rules (checked after pattern rules, before fallback)
-        val filePathStr = filePath.path
-        for (rule in state.directoryRules) {
-            if (filePathStr.startsWith(rule.path + "/") || filePathStr.startsWith(rule.path + "\\")) {
-                return Pair(rule.changelistName, change)
-            }
         }
 
         return Pair(null, change)
@@ -100,36 +90,28 @@ class SortChangelistAction : AnAction("Sort Changes") {
     ): String? {
         val content: String? = when {
             isMeta -> {
-                // Read the parent .asset file instead of the .meta file itself
                 val parentPath = filePath.path.removeSuffix(".meta")
                 val parentVFile = LocalFileSystem.getInstance().findFileByPath(parentPath)
                 if (parentVFile != null) {
                     try { parentVFile.inputStream.bufferedReader().readText() } catch (e: Exception) { null }
                 } else {
-                    // Parent also deleted — look it up in allChanges by path
                     val parentChange = allChanges.firstOrNull { c ->
                         (c.afterRevision?.file?.path ?: c.beforeRevision?.file?.path) == parentPath
                     }
                     try { parentChange?.beforeRevision?.content } catch (e: Exception) { null }
                 }
             }
-            isDeleted -> {
-                // Read content from before revision for deleted files
-                try { change.beforeRevision?.content } catch (e: Exception) { null }
-            }
-            else -> {
-                try { filePath.virtualFile?.inputStream?.bufferedReader()?.readText() } catch (e: Exception) { null }
-            }
+            isDeleted -> try { change.beforeRevision?.content } catch (e: Exception) { null }
+            else      -> try { filePath.virtualFile?.inputStream?.bufferedReader()?.readText() } catch (e: Exception) { null }
         }
         if (content == null) return null
 
         val (unityClass, soClass) = detectAssetClass(content) ?: return null
 
         if (unityClass != "MonoBehaviour") {
-            return state.assetClassRules[unityClass]
+            return state.assetClassRules.firstOrNull { it.enabled && it.unityClass == unityClass }?.changelistName
         }
 
-        // MonoBehaviour = ScriptableObject
         if (soClass != null) {
             return if (state.sortScriptableObjectsByClass) "SO: $soClass" else "ScriptableObjects"
         }
@@ -188,14 +170,14 @@ class SortChangelistAction : AnAction("Sort Changes") {
     ) {
         for ((categoryName, changes) in sortedChanges) {
             val targetList = changeListManager.findChangeList(categoryName)
-                ?: changeListManager.addChangeList(categoryName, "Auto-sorted")
+                ?: changeListManager.addChangeList(categoryName, null)
             changeListManager.moveChangesTo(targetList, *changes.toTypedArray())
         }
 
         if (unassigned.isNotEmpty()) {
             val otherListName = "Other Changes"
             val otherList = changeListManager.findChangeList(otherListName)
-                ?: changeListManager.addChangeList(otherListName, "Uncategorized files")
+                ?: changeListManager.addChangeList(otherListName, null)
             changeListManager.moveChangesTo(otherList, *unassigned.toTypedArray())
         }
     }
