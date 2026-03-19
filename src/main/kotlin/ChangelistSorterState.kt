@@ -33,6 +33,7 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
     var sortScriptableObjectsByClass: Boolean = false
     var removeUnusedChangelists: Boolean = false
     var sortUnityAssets: Boolean = true
+    var ignoreEmptyFolderMetas: Boolean = false
 
     @XCollection(style = XCollection.Style.v2)
     var sortingRules: MutableList<SortingRule> = mutableListOf(

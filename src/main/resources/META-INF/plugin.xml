@@ -22,7 +22,8 @@
                 text="Sort Changelists"
                 description="Sorts changes into separate changelists">
             <keyboard-shortcut keymap="$default" first-keystroke="alt S"/>
-            <add-to-group group-id="VcsGroup" anchor="last"/>
+            <add-to-group group-id="VcsGlobalGroup" anchor="last"/>
+            <add-to-group group-id="ChangesViewPopupMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

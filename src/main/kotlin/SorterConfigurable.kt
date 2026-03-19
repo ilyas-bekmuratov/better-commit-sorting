@@ -31,6 +31,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
     private lateinit var sortSOByClassCheckBox: JCheckBox
     private lateinit var removeUnusedChangelistsCheckBox: JCheckBox
     private lateinit var sortUnityAssetsCheckBox: JCheckBox
+    private lateinit var ignoreEmptyFolderMetasCheckBox: JCheckBox
 
     override fun getDisplayName(): String = "Changelist Sorter"
 
@@ -116,6 +117,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         sortSOByClassCheckBox = JCheckBox("Sort ScriptableObjects by class type")
         removeUnusedChangelistsCheckBox = JCheckBox("Remove empty changelists after sorting")
         sortUnityAssetsCheckBox = JCheckBox("Sort Unity Assets (inspect .asset file content)")
+        ignoreEmptyFolderMetasCheckBox = JCheckBox("Unstage added meta files for empty folders")
 
         val checkboxPanel = JPanel()
         checkboxPanel.layout = BoxLayout(checkboxPanel, BoxLayout.Y_AXIS)
@@ -123,6 +125,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         checkboxPanel.add(sortSOByClassCheckBox)
         checkboxPanel.add(removeUnusedChangelistsCheckBox)
         checkboxPanel.add(sortUnityAssetsCheckBox)
+        checkboxPanel.add(ignoreEmptyFolderMetasCheckBox)
 
         val tablesPanel = JPanel()
         tablesPanel.layout = BoxLayout(tablesPanel, BoxLayout.Y_AXIS)
@@ -173,6 +176,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         sortSOByClassCheckBox.isSelected = false
         removeUnusedChangelistsCheckBox.isSelected = false
         sortUnityAssetsCheckBox.isSelected = true
+        ignoreEmptyFolderMetasCheckBox.isSelected = false
 
         unifiedTableModel.rowCount = 0
         listOf(
@@ -203,6 +207,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         if (state.sortScriptableObjectsByClass != sortSOByClassCheckBox.isSelected) return true
         if (state.removeUnusedChangelists != removeUnusedChangelistsCheckBox.isSelected) return true
         if (state.sortUnityAssets != sortUnityAssetsCheckBox.isSelected) return true
+        if (state.ignoreEmptyFolderMetas != ignoreEmptyFolderMetasCheckBox.isSelected) return true
 
         if (state.sortingRules.size != unifiedTableModel.rowCount) return true
         for (i in 0 until unifiedTableModel.rowCount) {
@@ -230,6 +235,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         state.sortScriptableObjectsByClass = sortSOByClassCheckBox.isSelected
         state.removeUnusedChangelists = removeUnusedChangelistsCheckBox.isSelected
         state.sortUnityAssets = sortUnityAssetsCheckBox.isSelected
+        state.ignoreEmptyFolderMetas = ignoreEmptyFolderMetasCheckBox.isSelected
 
         state.sortingRules.clear()
         for (i in 0 until unifiedTableModel.rowCount) {
@@ -257,6 +263,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         sortSOByClassCheckBox.isSelected = state.sortScriptableObjectsByClass
         removeUnusedChangelistsCheckBox.isSelected = state.removeUnusedChangelists
         sortUnityAssetsCheckBox.isSelected = state.sortUnityAssets
+        ignoreEmptyFolderMetasCheckBox.isSelected = state.ignoreEmptyFolderMetas
 
         unifiedTableModel.rowCount = 0
         for (rule in state.sortingRules) {

@@ -1,35 +1,54 @@
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.FilePath
+import com.intellij.openapi.vcs.ProjectLevelVcsManager
+import com.intellij.openapi.vcs.VcsException
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
+import com.intellij.openapi.vcs.rollback.RollbackProgressListener
 import com.intellij.openapi.vfs.LocalFileSystem
 
 class SortChangelistAction : AnAction("Sort Changes") {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val changeListManager = ChangeListManager.getInstance(project)
-        val state = ChangelistSorterState.getInstance(project)
+        object : Task.Backgroundable(project, "Sorting changelists...") {
+            override fun run(indicator: ProgressIndicator) {
+                val changeListManager = ChangeListManager.getInstance(project)
+                val state = ChangelistSorterState.getInstance(project)
 
-        val sortedChanges = mutableMapOf<String, MutableList<Change>>()
-        val unassignedChanges = mutableListOf<Change>()
+                val sortedChanges = mutableMapOf<String, MutableList<Change>>()
+                val unassignedChanges = mutableListOf<Change>()
 
-        val allChanges = changeListManager.allChanges
-        for (change in allChanges) {
-            val (category, ch) = classifyChange(change, state, allChanges)
-            if (category != null) {
-                sortedChanges.computeIfAbsent(category) { mutableListOf() }.add(ch)
-            } else {
-                unassignedChanges.add(ch)
+                val allChanges = changeListManager.allChanges.toList()
+
+                val changesToSort = if (state.ignoreEmptyFolderMetas) {
+                    val (folderMetas, rest) = allChanges.partition { isFolderMetaChange(it) }
+                    if (folderMetas.isNotEmpty()) unstageAddedFolderMetaChanges(project, folderMetas)
+                    rest
+                } else {
+                    allChanges
+                }
+
+                for (change in changesToSort) {
+                    val (category, ch) = classifyChange(change, state, changesToSort)
+                    if (category != null) {
+                        sortedChanges.computeIfAbsent(category) { mutableListOf() }.add(ch)
+                    } else {
+                        unassignedChanges.add(ch)
+                    }
+                }
+
+                moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
+
+                if (state.removeUnusedChangelists) {
+                    removeEmptyChangelists(changeListManager)
+                }
             }
-        }
-
-        moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
-
-        if (state.removeUnusedChangelists) {
-            removeEmptyChangelists(changeListManager)
-        }
+        }.queue()
     }
 
     private fun resolveExtension(filePath: FilePath, groupMetaFiles: Boolean): String {
@@ -152,6 +171,34 @@ class SortChangelistAction : AnAction("Sort Changes") {
         }
 
         return Pair(unityClass, null)
+    }
+
+    private fun isFolderMetaChange(change: Change): Boolean {
+        val filePath = change.afterRevision?.file ?: change.beforeRevision?.file ?: return false
+        if (!filePath.name.endsWith(".meta", ignoreCase = true)) return false
+
+        val pathWithoutMeta = filePath.path.removeSuffix(".meta")
+        val vFile = LocalFileSystem.getInstance().findFileByPath(pathWithoutMeta)
+        if (vFile != null && vFile.isDirectory) {
+            return vFile.children.isEmpty()
+        }
+
+        // Folder was deleted — check content of the before-revision for the Unity folder marker
+        val content = try { change.beforeRevision?.content } catch (e: Exception) { null }
+        return content?.contains("folderAsset: yes") == true
+    }
+
+    private fun unstageAddedFolderMetaChanges(project: Project, changes: List<Change>) {
+        val addedOnly = changes.filter { it.beforeRevision == null }
+        if (addedOnly.isEmpty()) return
+        val vcsManager = ProjectLevelVcsManager.getInstance(project)
+        val byVcs = addedOnly.groupBy { change ->
+            val fp = change.afterRevision?.file ?: change.beforeRevision?.file
+            fp?.let { vcsManager.getVcsFor(it) }
+        }
+        for ((vcs, vcsChanges) in byVcs) {
+            vcs?.rollbackEnvironment?.rollbackChanges(vcsChanges, mutableListOf<VcsException>(), RollbackProgressListener.EMPTY)
+        }
     }
 
     private fun removeEmptyChangelists(changeListManager: ChangeListManager) {

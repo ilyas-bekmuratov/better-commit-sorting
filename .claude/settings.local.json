@@ -21,7 +21,14 @@
       "Read(//c//**)",
       "Read(//d//**)",
       "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew build:*)",
-      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew compileKotlin:*)"
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew compileKotlin:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Java/jdk-21\" PATH=\"$JAVA_HOME/bin:$PATH\":*)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" PATH=\"$JAVA_HOME/bin:$PATH\" /d/Repos/bcs/gradlew compileKotlin:*)",
+      "Bash(unzip:*)",
+      "Bash(javap:*)",
+      "Bash(find $BASE:*)",
+      "Bash(jar tf:*)"
     ]
   }
 }
