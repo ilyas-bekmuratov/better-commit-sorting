@@ -87,6 +87,20 @@ class SorterConfigurable(private val project: Project) : Configurable {
                 val selected = unifiedTable.selectedRow
                 if (selected >= 0) unifiedTableModel.removeRow(selected)
             }
+            .setMoveUpAction {
+                val selected = unifiedTable.selectedRow
+                if (selected > 0) {
+                    unifiedTableModel.moveRow(selected, selected, selected - 1)
+                    unifiedTable.selectionModel.setSelectionInterval(selected - 1, selected - 1)
+                }
+            }
+            .setMoveDownAction {
+                val selected = unifiedTable.selectedRow
+                if (selected >= 0 && selected < unifiedTableModel.rowCount - 1) {
+                    unifiedTableModel.moveRow(selected, selected, selected + 1)
+                    unifiedTable.selectionModel.setSelectionInterval(selected + 1, selected + 1)
+                }
+            }
 
         // Asset class rules table: Enabled | Unity Class | Changelist
         assetClassTableModel = object : DefaultTableModel(arrayOf("Enabled", "Unity Class", "Changelist"), 0) {
