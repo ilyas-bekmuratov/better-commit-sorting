@@ -22,6 +22,25 @@ class AssetClassRule {
     var enabled: Boolean = true
 }
 
+@Tag("presetData")
+class PresetData {
+    @XCollection(style = XCollection.Style.v2)
+    var sortingRules: MutableList<SortingRule> = mutableListOf()
+    @XCollection(style = XCollection.Style.v2)
+    var assetClassRules: MutableList<AssetClassRule> = mutableListOf()
+    var groupMetaFiles: Boolean = true
+    var sortScriptableObjectsByClass: Boolean = false
+    var removeUnusedChangelists: Boolean = false
+    var sortUnityAssets: Boolean = true
+    var ignoreEmptyFolderMetas: Boolean = false
+}
+
+@Tag("namedPreset")
+class NamedPreset {
+    var name: String = ""
+    var data: PresetData = PresetData()
+}
+
 @Service(Service.Level.PROJECT)
 @State(
     name = "ChangelistSorterSettings",
@@ -56,6 +75,19 @@ class ChangelistSorterState : PersistentStateComponent<ChangelistSorterState> {
         AssetClassRule().apply { unityClass = "PhysicMaterial";    changelistName = "Physics" },
         AssetClassRule().apply { unityClass = "LightingDataAsset"; changelistName = "Lighting" },
     )
+
+    @XCollection(style = XCollection.Style.v2)
+    var presets: MutableList<NamedPreset> = mutableListOf()
+
+    fun savePreset(name: String, data: PresetData) {
+        val existing = presets.indexOfFirst { it.name == name }
+        val preset = NamedPreset().apply { this.name = name; this.data = data }
+        if (existing >= 0) presets[existing] = preset else presets.add(preset)
+    }
+
+    fun deletePreset(name: String) {
+        presets.removeAll { it.name == name }
+    }
 
     override fun getState(): ChangelistSorterState = this
 

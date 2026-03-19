@@ -32,6 +32,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
     private lateinit var removeUnusedChangelistsCheckBox: JCheckBox
     private lateinit var sortUnityAssetsCheckBox: JCheckBox
     private lateinit var ignoreEmptyFolderMetasCheckBox: JCheckBox
+    private lateinit var presetComboBox: JComboBox<String>
 
     override fun getDisplayName(): String = "Changelist Sorter"
 
@@ -173,8 +174,62 @@ class SorterConfigurable(private val project: Project) : Configurable {
             )
             if (confirmed == Messages.YES) resetToDefaults()
         }
+
+        val savePresetButton = JButton("Save Preset\u2026")
+        savePresetButton.addActionListener {
+            val name = Messages.showInputDialog(
+                "Enter a name for this preset:", "Save Preset", null
+            )?.trim() ?: return@addActionListener
+            if (name.isBlank()) {
+                Messages.showErrorDialog("Preset name cannot be blank.", "Save Preset")
+                return@addActionListener
+            }
+            val state = ChangelistSorterState.getInstance(project)
+            if (state.presets.any { it.name == name }) {
+                val confirmed = Messages.showYesNoDialog(
+                    "A preset named '$name' already exists. Overwrite it?",
+                    "Save Preset",
+                    Messages.getWarningIcon()
+                )
+                if (confirmed != Messages.YES) return@addActionListener
+            }
+            state.savePreset(name, captureCurrentUiAsPreset())
+            refreshPresetComboBox(state, name)
+        }
+
+        presetComboBox = JComboBox<String>()
+        presetComboBox.preferredSize = Dimension(160, presetComboBox.preferredSize.height)
+
+        val loadPresetButton = JButton("Load")
+        loadPresetButton.addActionListener {
+            val state = ChangelistSorterState.getInstance(project)
+            val selected = presetComboBox.selectedItem as? String ?: return@addActionListener
+            val preset = state.presets.firstOrNull { it.name == selected }
+            if (preset != null) applyPresetToUi(preset.data)
+        }
+
+        val removePresetButton = JButton("Remove")
+        removePresetButton.addActionListener {
+            val state = ChangelistSorterState.getInstance(project)
+            val selected = presetComboBox.selectedItem as? String ?: return@addActionListener
+            val confirmed = Messages.showYesNoDialog(
+                "Remove preset '$selected'?",
+                "Remove Preset",
+                Messages.getWarningIcon()
+            )
+            if (confirmed == Messages.YES) {
+                state.deletePreset(selected)
+                refreshPresetComboBox(state, null)
+            }
+        }
+
         val bottomPanel = JPanel(FlowLayout(FlowLayout.LEFT))
         bottomPanel.add(resetButton)
+        bottomPanel.add(savePresetButton)
+        bottomPanel.add(JLabel("  Preset:"))
+        bottomPanel.add(presetComboBox)
+        bottomPanel.add(loadPresetButton)
+        bottomPanel.add(removePresetButton)
 
         val wrapperPanel = JPanel(BorderLayout())
         wrapperPanel.add(checkboxPanel, BorderLayout.NORTH)
@@ -183,6 +238,57 @@ class SorterConfigurable(private val project: Project) : Configurable {
 
         myPanel = wrapperPanel
         return myPanel
+    }
+
+    private fun refreshPresetComboBox(state: ChangelistSorterState, selectName: String?) {
+        presetComboBox.removeAllItems()
+        for (preset in state.presets) {
+            presetComboBox.addItem(preset.name)
+        }
+        if (selectName != null) {
+            presetComboBox.selectedItem = selectName
+        }
+    }
+
+    private fun captureCurrentUiAsPreset(): PresetData {
+        val data = PresetData()
+        data.groupMetaFiles = groupMetaFilesCheckBox.isSelected
+        data.sortScriptableObjectsByClass = sortSOByClassCheckBox.isSelected
+        data.removeUnusedChangelists = removeUnusedChangelistsCheckBox.isSelected
+        data.sortUnityAssets = sortUnityAssetsCheckBox.isSelected
+        data.ignoreEmptyFolderMetas = ignoreEmptyFolderMetasCheckBox.isSelected
+        for (i in 0 until unifiedTableModel.rowCount) {
+            data.sortingRules.add(SortingRule().apply {
+                enabled        = unifiedTableModel.getValueAt(i, 0) as Boolean
+                changelistName = unifiedTableModel.getValueAt(i, 1) as String
+                matchType      = unifiedTableModel.getValueAt(i, 2) as String
+                pattern        = unifiedTableModel.getValueAt(i, 3) as String
+            })
+        }
+        for (i in 0 until assetClassTableModel.rowCount) {
+            data.assetClassRules.add(AssetClassRule().apply {
+                enabled        = assetClassTableModel.getValueAt(i, 0) as Boolean
+                unityClass     = assetClassTableModel.getValueAt(i, 1) as String
+                changelistName = assetClassTableModel.getValueAt(i, 2) as String
+            })
+        }
+        return data
+    }
+
+    private fun applyPresetToUi(preset: PresetData) {
+        groupMetaFilesCheckBox.isSelected = preset.groupMetaFiles
+        sortSOByClassCheckBox.isSelected = preset.sortScriptableObjectsByClass
+        removeUnusedChangelistsCheckBox.isSelected = preset.removeUnusedChangelists
+        sortUnityAssetsCheckBox.isSelected = preset.sortUnityAssets
+        ignoreEmptyFolderMetasCheckBox.isSelected = preset.ignoreEmptyFolderMetas
+        unifiedTableModel.rowCount = 0
+        for (rule in preset.sortingRules) {
+            unifiedTableModel.addRow(arrayOf<Any>(rule.enabled, rule.changelistName, rule.matchType, rule.pattern))
+        }
+        assetClassTableModel.rowCount = 0
+        for (rule in preset.assetClassRules) {
+            assetClassTableModel.addRow(arrayOf<Any>(rule.enabled, rule.unityClass, rule.changelistName))
+        }
     }
 
     private fun resetToDefaults() {
@@ -288,5 +394,7 @@ class SorterConfigurable(private val project: Project) : Configurable {
         for (rule in state.assetClassRules) {
             assetClassTableModel.addRow(arrayOf<Any>(rule.enabled, rule.unityClass, rule.changelistName))
         }
+
+        refreshPresetComboBox(state, null)
     }
 }

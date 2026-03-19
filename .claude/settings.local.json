@@ -28,7 +28,9 @@
       "Bash(unzip:*)",
       "Bash(javap:*)",
       "Bash(find $BASE:*)",
-      "Bash(jar tf:*)"
+      "Bash(jar tf:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-21.0.6.7-hotspot\" ./gradlew compileKotlin:*)"
     ]
   }
 }
