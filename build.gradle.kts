@@ -1,3 +1,4 @@
+import java.util.Base64
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
@@ -34,6 +35,7 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    testImplementation("io.mockk:mockk:1.13.10")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -120,6 +122,14 @@ changelog {
 
 // Configure Gradle Kover Plugin - read more: https://kotlin.github.io/kotlinx-kover/gradle-plugin/#configuration-details
 kover {
+    currentProject {
+        instrumentation {
+            // JBR (JetBrains Runtime) used by IntelliJ Platform test sandbox is incompatible
+            // with the kover javaagent — disable instrumentation for the test task to prevent
+            // a JVM crash before any tests run.
+            disabledForTestTasks.add("test")
+        }
+    }
     reports {
         total {
             xml {
@@ -136,6 +146,41 @@ tasks {
 
     publishPlugin {
         dependsOn(patchChangelog)
+    }
+
+    // IU-2025.2.5 + IntelliJ Platform Plugin 2.11.0 incompatibility: the coroutines-javaagent
+    // stub delegates to the IDE's bundled AgentPremain, which calls a method
+    // (getEnableCreationStackTraces$kotlinx_coroutines_core) that no longer exists in the
+    // coroutines version bundled by IU-2025.2.5, crashing the JVM before any test runs.
+    // Fix: replace the stub with a real no-op agent jar that loads its own premain class.
+    register("installNoOpCoroutinesAgent") {
+        dependsOn("initializeIntellijPlatformPlugin")
+        val agentFile = file(".intellijPlatform/coroutines-javaagent.jar")
+        outputs.file(agentFile)
+        @Suppress("SpellCheckingInspection")
+        val noOpAgentBase64 = """
+            UEsDBAoAAAgAAM+Ll1wAAAAAAAAAAAAAAAAJAAQATUVUQS1JTkYv/soAAFBLAwQUAAgICADPi5dc
+            AAAAAAAAAAAAAAAAFAAAAE1FVEEtSU5GL01BTklGRVNULk1GJcwxDsIwDEDRPVLukBGGVC1jNshc
+            QB3YLXCQJWoj2x24fSMx/6c/A1ND8/xANRIuaRrGGO6KKxDn+gGzkq5y+1ZR2ZwY7fxG9hgqcF7Q
+            Fdia6Pq32LXrhj0rguMrX34lnfp0mMZ0mOmpYtL8GEMMO1BLBwgotr3ScAAAAH0AAABQSwMEFAAI
+            CAgANouXXAAAAAAAAAAAAAAAABkAAABOb09wQ29yb3V0aW5lc0FnZW50LmNsYXNzbY/BagIxEIb/
+            cdfd1toqlIIePHjTHroPsKUgQkEQPVi8Z21YIm4iMdv36qnQQx+gDyWdLKUK3Rz+mfx88yfzffz8
+            AjBBt4UGghhhG01EhO5WvIlkJ3SeLLOt3DhC9Ki0ck+EYDRex7gg3C7Mcj811pROaXmY5FIzF07N
+            qyR05uwtyiKT9kVkO3bivZWFUJqQjuan/JWzSufpmaP0wdmy4LRk9tcKp4xOx2vCXc2091srU9qN
+            fFb+sV7N3x78GIaIeVd/ApDflvWSbwOuxLV5/wF654YTWaPKbDByhfYv2q8c/MeCCrs+w6gOC1lv
+            qozOD1BLBwgcDlOT8QAAAIIBAABQSwECCgAKAAAIAADPi5dcAAAAAAAAAAAAAAAACQAEAAAAAAAA
+            AAAAAAAAAAAATUVUQS1JTkYv/soAAFBLAQIUABQACAgIAM+Ll1wotr3ScAAAAH0AAAAUAAAAAAAA
+            AAAAAAAAACsAAABNRVRBLUlORi9NQU5JRkVTVC5NRlBLAQIUABQACAgIADaLl1wcDlOT8QAAAIIB
+            AAAZAAAAAAAAAAAAAAAAAN0AAABOb09wQ29yb3V0aW5lc0FnZW50LmNsYXNzUEsFBgAAAAADAAMA
+            xAAAABUCAAAAAA==
+        """.trimIndent().replace("\n", "")
+        doLast {
+            agentFile.writeBytes(Base64.getDecoder().decode(noOpAgentBase64.replace("\\s".toRegex(), "")))
+        }
+    }
+
+    test {
+        dependsOn("installNoOpCoroutinesAgent")
     }
 }
 

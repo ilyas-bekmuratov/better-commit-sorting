@@ -1,5 +1,6 @@
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -10,6 +11,7 @@ import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vcs.rollback.RollbackProgressListener
 import com.intellij.openapi.vfs.LocalFileSystem
+import java.util.stream.Collectors
 
 class SortChangelistAction : AnAction("Sort Changes") {
 
@@ -19,9 +21,6 @@ class SortChangelistAction : AnAction("Sort Changes") {
             override fun run(indicator: ProgressIndicator) {
                 val changeListManager = ChangeListManager.getInstance(project)
                 val state = ChangelistSorterState.getInstance(project)
-
-                val sortedChanges = mutableMapOf<String, MutableList<Change>>()
-                val unassignedChanges = mutableListOf<Change>()
 
                 val allChanges = changeListManager.allChanges.toList()
 
@@ -33,25 +32,90 @@ class SortChangelistAction : AnAction("Sort Changes") {
                     allChanges
                 }
 
-                for (change in changesToSort) {
-                    val (category, ch) = classifyChange(change, state, changesToSort)
+                // O(N) path→change index — replaces O(N²) firstOrNull scan per .meta
+                val changeByPath = buildChangeByPath(changesToSort)
+
+                // Parallel pre-read of all asset content — eliminates serial I/O during classify
+                val contentCache = buildContentCache(changesToSort, state)
+
+                val sortedChanges = mutableMapOf<String, MutableList<Change>>()
+                val unassignedChanges = mutableListOf<Change>()
+                val total = changesToSort.size
+
+                changesToSort.forEachIndexed { index, change ->
+                    indicator.fraction = if (total > 0) index.toDouble() / total else 0.0
+                    val (category, ch) = classifyChange(change, state, changeByPath, contentCache)
                     if (category != null) {
                         sortedChanges.computeIfAbsent(category) { mutableListOf() }.add(ch)
                     } else {
                         unassignedChanges.add(ch)
                     }
                 }
+                indicator.fraction = 1.0
 
-                moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
-
-                if (state.removeUnusedChangelists) {
-                    removeEmptyChangelists(changeListManager)
+                // Single EDT commit — no N round-trips
+                ApplicationManager.getApplication().invokeAndWait {
+                    moveChangesToChangelists(sortedChanges, unassignedChanges, changeListManager)
+                    if (state.removeUnusedChangelists) removeEmptyChangelists(changeListManager)
                 }
             }
         }.queue()
     }
 
-    private fun resolveExtension(filePath: FilePath, groupMetaFiles: Boolean): String {
+    internal fun buildChangeByPath(changes: List<Change>): Map<String, Change> =
+        changes.mapNotNull { c ->
+            val path = c.afterRevision?.file?.path ?: c.beforeRevision?.file?.path
+            if (path != null) path to c else null
+        }.toMap()
+
+    internal fun buildContentCache(changes: List<Change>, state: ChangelistSorterState): Map<String, String?> =
+        changes
+            .filter { needsAssetRead(it, state) }
+            .parallelStream()
+            .map { c ->
+                val path = c.afterRevision?.file?.path ?: c.beforeRevision?.file?.path
+                Pair(path, readAssetContent(c))
+            }
+            .filter { it.first != null }
+            .collect(Collectors.toList())
+            .associate { it.first!! to it.second }
+
+    internal fun needsAssetRead(change: Change, state: ChangelistSorterState): Boolean {
+        if (!state.sortUnityAssets) return false
+        val filePath = change.afterRevision?.file ?: change.beforeRevision?.file ?: return false
+        val ext = filePath.name.substringAfterLast('.', "").lowercase()
+        if (ext == "asset") return true
+        if (ext == "meta") {
+            val parentExt = filePath.name.removeSuffix(".meta").removeSuffix(".META")
+                .substringAfterLast('.', "").lowercase()
+            if (parentExt == "asset") return true
+        }
+        return false
+    }
+
+    private fun readAssetContent(change: Change): String? {
+        val filePath = change.afterRevision?.file ?: change.beforeRevision?.file ?: return null
+        val isDeleted = change.afterRevision == null
+        val ext = filePath.name.substringAfterLast('.', "").lowercase()
+        val isMeta = ext == "meta"
+
+        return when {
+            isMeta -> {
+                // Read the parent .asset content on behalf of this .meta change
+                val parentPath = filePath.path.removeSuffix(".meta")
+                val parentVFile = LocalFileSystem.getInstance().findFileByPath(parentPath)
+                if (parentVFile != null) {
+                    try { parentVFile.inputStream.bufferedReader().readText() } catch (e: Exception) { null }
+                } else {
+                    null
+                }
+            }
+            isDeleted -> try { change.beforeRevision?.content } catch (e: Exception) { null }
+            else      -> try { filePath.virtualFile?.inputStream?.bufferedReader()?.readText() } catch (e: Exception) { null }
+        }
+    }
+
+    internal fun resolveExtension(filePath: FilePath, groupMetaFiles: Boolean): String {
         val ext = filePath.name.substringAfterLast('.', "").lowercase()
         if (groupMetaFiles && ext == "meta") {
             val parentName = filePath.name.removeSuffix(".meta").removeSuffix(".META")
@@ -61,7 +125,12 @@ class SortChangelistAction : AnAction("Sort Changes") {
         return ext
     }
 
-    private fun classifyChange(change: Change, state: ChangelistSorterState, allChanges: Collection<Change>): Pair<String?, Change> {
+    private fun classifyChange(
+        change: Change,
+        state: ChangelistSorterState,
+        changeByPath: Map<String, Change>,
+        contentCache: Map<String, String?>
+    ): Pair<String?, Change> {
         val filePath = change.afterRevision?.file ?: change.beforeRevision?.file
             ?: return Pair(null, change)
         val isDeleted = change.afterRevision == null
@@ -78,7 +147,7 @@ class SortChangelistAction : AnAction("Sort Changes") {
                     val exts = rule.pattern.split(",").map { it.trim().lowercase() }
                     if (exts.contains(ext)) {
                         if (ext == "asset" && state.sortUnityAssets) {
-                            val assetCategory = resolveAssetCategory(change, filePath, isMeta, isDeleted, state, allChanges)
+                            val assetCategory = resolveAssetCategory(change, filePath, isMeta, isDeleted, state, changeByPath, contentCache)
                             if (assetCategory != null) return Pair(assetCategory, change)
                         }
                         true
@@ -105,24 +174,20 @@ class SortChangelistAction : AnAction("Sort Changes") {
         isMeta: Boolean,
         isDeleted: Boolean,
         state: ChangelistSorterState,
-        allChanges: Collection<Change>
+        changeByPath: Map<String, Change>,
+        contentCache: Map<String, String?>
     ): String? {
-        val content: String? = when {
-            isMeta -> {
-                val parentPath = filePath.path.removeSuffix(".meta")
-                val parentVFile = LocalFileSystem.getInstance().findFileByPath(parentPath)
-                if (parentVFile != null) {
-                    try { parentVFile.inputStream.bufferedReader().readText() } catch (e: Exception) { null }
-                } else {
-                    val parentChange = allChanges.firstOrNull { c ->
-                        (c.afterRevision?.file?.path ?: c.beforeRevision?.file?.path) == parentPath
-                    }
-                    try { parentChange?.beforeRevision?.content } catch (e: Exception) { null }
-                }
-            }
-            isDeleted -> try { change.beforeRevision?.content } catch (e: Exception) { null }
-            else      -> try { filePath.virtualFile?.inputStream?.bufferedReader()?.readText() } catch (e: Exception) { null }
+        val content: String? = if (isMeta) {
+            val parentPath = filePath.path.removeSuffix(".meta")
+            // Cache for .meta path stores parent's content; fall back to parent's own cache entry
+            // or beforeRevision for a deleted parent that has its own change
+            contentCache[filePath.path]
+                ?: contentCache[parentPath]
+                ?: try { changeByPath[parentPath]?.beforeRevision?.content } catch (e: Exception) { null }
+        } else {
+            contentCache[filePath.path]
         }
+
         if (content == null) return null
 
         val (unityClass, soClass) = detectAssetClass(content) ?: return null
@@ -142,7 +207,7 @@ class SortChangelistAction : AnAction("Sort Changes") {
      * Returns (unityClass, soClass) where soClass is non-null only for MonoBehaviour assets
      * that have a valid m_EditorClassIdentifier.
      */
-    private fun detectAssetClass(content: String): Pair<String, String?>? {
+    internal fun detectAssetClass(content: String): Pair<String, String?>? {
         val lines = content.lines().take(30).map { it.trim() }
         val classLineRegex = Regex("^([A-Za-z][A-Za-z0-9_]+):\\s*$")
 

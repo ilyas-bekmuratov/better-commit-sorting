@@ -30,7 +30,20 @@
       "Bash(find $BASE:*)",
       "Bash(jar tf:*)",
       "Bash(./gradlew test:*)",
-      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-21.0.6.7-hotspot\" ./gradlew compileKotlin:*)"
+      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-21.0.6.7-hotspot\" ./gradlew compileKotlin:*)",
+      "Bash(sed 's/.*\\\\.//')",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew compileTestKotlin)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew test --tests \"SortChangelistActionTest\")",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew test --tests \"SortChangelistActionTest\" --info)",
+      "Bash(JAVA_HOME=\"/c/Users/ibekm/.jdks/ms-21.0.10\" ./gradlew test --tests \"SortChangelistActionTest\" -x koverVerify --info)",
+      "Bash(cp D:/Repos/bcs/.intellijPlatform/coroutines-javaagent-legacy.jar /tmp/legacy-agent-backup.jar)",
+      "Bash(cp D:/Repos/bcs/.intellijPlatform/coroutines-javaagent.jar /tmp/new-agent-backup.jar)",
+      "Bash(/tmp/noopagent/MANIFEST.MF:*)",
+      "Bash(/c/Users/ibekm/.jdks/ms-21.0.10/bin/jar cfm:*)",
+      "Read(//tmp/noopagent/**)",
+      "Bash(find D:/Repos/bcs/build/reports/tests/test -name *.xml)",
+      "Bash(find D:/Repos/bcs/build/reports/tests -name *.xml)",
+      "Bash(find D:/Repos/bcs/build/test-results -name *.xml)"
     ]
   }
 }
